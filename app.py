@@ -68,7 +68,7 @@ with col_left:
         coloraxis_colorbar=dict(tickformat=".0%", title=""),
         height=430, margin=dict(l=0, r=0, t=10, b=0),
     )
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
 # ---------------- HISTOGRAM ----------------
 with col_right:
@@ -91,7 +91,7 @@ with col_right:
         xaxis_title="Refusal rate", yaxis_title="Number of countries",
     )
     click = st.plotly_chart(
-        fig, use_container_width=True, config={'displayModeBar': False},
+        fig, width='stretch', config={'displayModeBar': False},
         on_select="rerun", selection_mode="points", key="dist_hist",
     )
 
@@ -107,7 +107,6 @@ with col_right:
 
 st.write("")
 st.subheader("📊 Risk-Band Composition")
-band_col = f"risk_band_2025" if year == "2025" else None
 
 # compute band for the selected year dynamically
 def band(x):
@@ -130,10 +129,41 @@ fig.update_layout(
     xaxis_title="", yaxis_title="Number of countries",
     margin=dict(t=30, b=10),
 )
-st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
 insight(
     f"In {year}, {int(bands['Very High (60%+)'])} countries had a refusal rate above 60%, "
     f"while {int(bands['Low (0-20%)'])} stayed under 20% — explore the **Rankings** and "
     f"**Country Spotlight** pages for details."
+)
+
+st.write("")
+st.subheader("📊 Risk-Band Composition — Trend Across All Years")
+band_order = ["Low (0-20%)", "Moderate (20-40%)", "High (40-60%)", "Very High (60%+)"]
+band_colors = {band_order[i]: COLORS["sequence"][c] for i, c in zip(range(4), (5, 3, 1, 0))}
+band_trend = {}
+for yc in YEAR_COLS:
+    col_bands = df[yc].dropna().apply(band).value_counts().reindex(band_order).fillna(0)
+    band_trend[yc] = col_bands
+
+fig = go.Figure()
+for b in band_order:
+    fig.add_trace(go.Bar(
+        x=[int(y) for y in YEAR_COLS],
+        y=[band_trend[yc][b] for yc in YEAR_COLS],
+        name=b, marker_color=band_colors[b],
+    ))
+fig.update_layout(
+    height=380, barmode="stack", xaxis_title="", yaxis_title="Number of countries",
+    legend=dict(orientation="h", y=1.15), margin=dict(t=30, b=10),
+)
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    "This stacked view shows how many countries sat in each risk band every year — useful for spotting "
+    "whether the world is drifting toward higher or lower refusal risk over time, not just in the year selected above."
+)
+
+st.caption(
+    "📌 Data note: Western Sahara only has published refusal-rate data for 2019–2020; "
+    "later years are shown as unavailable rather than zero."
 )
