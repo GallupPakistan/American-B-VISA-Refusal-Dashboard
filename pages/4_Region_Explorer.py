@@ -106,9 +106,12 @@ with col1:
 with col2:
     st.subheader(f"📊 Countries in {region if region != 'All Regions' else 'All Regions'}")
     ranked = scoped.sort_values(year, ascending=True)
+    show_labels = len(ranked) <= 40  # keep it readable when "All Regions" has ~199 bars
     fig = go.Figure(go.Bar(
         x=ranked[year] * 100, y=ranked["Country"], orientation="h",
         marker_color=COLORS["primary"],
+        text=[f"{v*100:.1f}%" for v in ranked[year]] if show_labels else None,
+        textposition="outside" if show_labels else None,
     ))
     bar_height = max(360, 22 * len(ranked))
     fig.update_layout(
@@ -116,6 +119,8 @@ with col2:
         margin=dict(t=10, b=10),
     )
     st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    if not show_labels:
+        st.caption("ℹ️ Bar labels are hidden here (too many countries) — hover any bar for its exact rate.")
 
 # ---------------- 4. BOX PLOT — REGIONS SIDE BY SIDE ----------------
 st.write("")
@@ -132,4 +137,25 @@ st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 insight(
     "Box plots show the median (middle line), the middle 50% of countries (box), and outliers (dots) "
     "for each region — useful for comparing consistency, not just averages."
+)
+
+# ---------------- 5. DISTRIBUTION HISTOGRAM FOR THE SELECTED REGION ----------------
+st.write("")
+st.subheader(f"📊 Distribution — {region if region != 'All Regions' else 'World'} ({year})")
+fig = px.histogram(
+    scoped, x=year, nbins=10,
+    color_discrete_sequence=[COLORS["primary"]],
+)
+fig.update_traces(xbins=dict(start=0, end=1, size=0.1))
+fig.update_layout(
+    height=340, xaxis_tickformat=".0%", xaxis_title="Refusal rate",
+    yaxis_title="Number of countries", margin=dict(t=10, b=10),
+)
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+low_share = int((scoped[year] < 0.20).sum())
+high_share = int((scoped[year] >= 0.60).sum())
+insight(
+    f"Within {region if region != 'All Regions' else 'the world'}, {low_share} of {len(scoped)} countries "
+    f"sit under 20% refusal and {high_share} are at 60%+ — this shows whether the region is broadly "
+    f"consistent or has a wide spread hiding behind its single average above."
 )
