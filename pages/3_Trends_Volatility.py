@@ -24,9 +24,11 @@ col1, col2 = st.columns([1.4, 1])
 with col1:
     st.subheader("🌍 Global Average Refusal Rate by Year")
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=YEARS, y=global_avg.values, mode="lines+markers",
+    fig.add_trace(go.Scatter(x=YEARS, y=global_avg.values, mode="lines+markers+text",
                               line=dict(color=COLORS["primary"], width=3), marker=dict(size=9),
-                              fill="tozeroy", fillcolor=COLORS["primary_light"]))
+                              fill="tozeroy", fillcolor=COLORS["primary_light"],
+                              text=[f"{v*100:.1f}%" for v in global_avg.values],
+                              textposition="top center"))
     fig.update_layout(height=400, yaxis_tickformat=".0%", yaxis_title="Avg refusal rate", xaxis_title="")
     st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     insight(
@@ -57,7 +59,9 @@ top_movers = pd.concat([
 fig = px.bar(
     top_movers, x="net_change", y="Country", orientation="h", color="direction",
     color_discrete_map={"Increase": COLORS["negative"], "Decrease": COLORS["positive"]},
+    text_auto="+.1%",
 )
+fig.update_traces(textposition="outside")
 fig.update_layout(height=460, xaxis_tickformat="+.0%", xaxis_title="Change in refusal rate", yaxis_title="",
                    legend_title="")
 st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
@@ -66,7 +70,9 @@ st.write("")
 st.subheader("⚡ Most Volatile Countries (Std. Deviation Across Years)")
 volatile = df[["Country", "std_dev"]].dropna().sort_values("std_dev", ascending=False).head(10).sort_values("std_dev")
 fig = px.bar(volatile, x="std_dev", y="Country", orientation="h",
-             color_discrete_sequence=[COLORS["primary_dark"]])
+             color_discrete_sequence=[COLORS["primary_dark"]],
+             text_auto=".1%")
+fig.update_traces(textposition="outside")
 fig.update_layout(height=400, xaxis_tickformat=".0%", xaxis_title="Std. deviation (2019-2025)", yaxis_title="")
 st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
@@ -77,7 +83,7 @@ yoy_years = [int(y) for y in yoy.index]
 fig = go.Figure(go.Bar(
     x=yoy_years, y=yoy.values,
     marker_color=[COLORS["negative"] if v >= 0 else COLORS["positive"] for v in yoy.values],
-    text=[f"{v:+.1f}" for v in yoy.values], textposition="outside",
+    text=[f"{v:+.1f}%" for v in yoy.values], textposition="outside",
 ))
 fig.update_layout(height=340, yaxis_title="Change vs prior year (pts)", xaxis_title="",
                    xaxis=dict(tickmode="array", tickvals=yoy_years))
