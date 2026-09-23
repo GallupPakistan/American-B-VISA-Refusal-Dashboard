@@ -92,6 +92,127 @@ else:
     st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
 st.write("")
+# ---------------- 6. RANK MOVEMENT: 2019 RANK vs 2025 RANK (SCATTER) ----------------
+st.subheader("↗️ Rank Movement: 2019 Rank vs 2025 Rank")
+rank_df = df[["Country", "2019", "2025"]].dropna().copy()
+rank_df["rank_2019"] = rank_df["2019"].rank(ascending=False, method="min").astype(int)
+rank_df["rank_2025"] = rank_df["2025"].rank(ascending=False, method="min").astype(int)
+n_countries = len(rank_df)
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=[1, n_countries], y=[1, n_countries], mode="lines",
+    line=dict(color="#CBD5E1", width=2, dash="dash"), showlegend=False, hoverinfo="skip",
+))
+fig.add_trace(go.Scatter(
+    x=rank_df["rank_2019"], y=rank_df["rank_2025"], mode="markers",
+    marker=dict(size=7, color=COLORS["primary"], opacity=0.6, line=dict(width=1, color="#FFFFFF")),
+    customdata=rank_df["Country"],
+    hovertemplate="<b>%{customdata}</b><br>2019 Rank: #%{x}<br>2025 Rank: #%{y}<extra></extra>",
+))
+fig.update_layout(
+    height=420, showlegend=False,
+    xaxis_title="Rank in 2019 (#1 = highest refusal rate)",
+    yaxis_title="Rank in 2025", margin=dict(t=20, b=10),
+)
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    "Dots on the dashed line kept the same rank; dots above it fell to a higher (worse) rank in "
+    "2025, dots below it improved — a quick view of how much the whole ranking reshuffled."
+)
+
+# ---------------- 7. REGIONAL MAKE-UP OF THE TOP 20 (DONUT) ----------------
+st.write("")
+st.subheader(f"🍩 Regional Make-up of the {year} Top 20")
+top20 = year_data.head(20).merge(df[["Country", "Region"]], on="Country")
+region_counts_top20 = top20["Region"].value_counts()
+fig = go.Figure(go.Pie(
+    labels=region_counts_top20.index, values=region_counts_top20.values, hole=0.5,
+    marker=dict(colors=COLORS["sequence"]),
+    texttemplate="%{label}<br>%{percent}", textposition="outside",
+))
+fig.update_layout(height=380, showlegend=False, margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+top_region = region_counts_top20.idxmax()
+insight(
+    f"**{top_region}** contributes the most countries ({int(region_counts_top20.max())} of 20) to this "
+    f"year's highest-refusal group."
+)
+
+# ---------------- 8. FULL DISTRIBUTION STRIP: TOP10 / MIDDLE / BOTTOM10 ----------------
+st.write("")
+st.subheader(f"🎯 All {len(year_data)} Countries at a Glance — {year}")
+strip_df = year_data.copy()
+strip_df["Tier"] = strip_df["Country"].apply(
+    lambda c: "Top 10" if c in top10_names else ("Bottom 10" if c in bottom10_names else "Middle")
+)
+tier_colors = {"Top 10": COLORS["negative"], "Bottom 10": COLORS["positive"], "Middle": "#94A3B8"}
+fig = go.Figure()
+for tier in ["Top 10", "Middle", "Bottom 10"]:
+    sub = strip_df[strip_df["Tier"] == tier]
+    fig.add_trace(go.Scatter(
+        x=sub[year], y=[tier] * len(sub), mode="markers", name=tier,
+        marker=dict(size=8, color=tier_colors[tier], opacity=0.7 if tier == "Middle" else 0.9),
+        customdata=sub["Country"],
+        hovertemplate="<b>%{customdata}</b><br>Rate: %{x:.1%}<extra></extra>",
+    ))
+fig.update_layout(
+    height=260, xaxis=dict(title="Refusal rate", tickformat=".0%"), yaxis_title="",
+    legend=dict(orientation="h", y=1.15), margin=dict(t=10, b=10),
+)
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("One picture of every country in the dataset, colored by which tier it falls in.")
+
+# ---------------- 9. PERCENTILE TIER BREAKDOWN ----------------
+st.write("")
+st.subheader(f"📶 Percentile Tiers — {year}")
+pct_ranks = year_data[year].rank(pct=True)
+
+combined = pd.Series({
+    "Top 10%": (pct_ranks >= 0.90).sum(),
+    "Next 15% (upper)": ((pct_ranks >= 0.75) & (pct_ranks < 0.90)).sum(),
+    "Middle 50%": ((pct_ranks >= 0.25) & (pct_ranks < 0.75)).sum(),
+    "Next 15% (lower)": ((pct_ranks >= 0.10) & (pct_ranks < 0.25)).sum(),
+    "Bottom 10%": (pct_ranks < 0.10).sum(),
+})
+fig = go.Figure(go.Bar(
+    x=combined.index, y=combined.values,
+    marker_color=[COLORS["negative"], COLORS["sequence"][1], "#94A3B8", COLORS["sequence"][3], COLORS["positive"]],
+    text=combined.values, textposition="outside",
+))
+fig.update_layout(height=340, xaxis_title="", yaxis_title="Number of countries", margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    "Percentile tiers rank countries relative to each other (not by a fixed rate cutoff) — the "
+    "\"Top 10%\" here are the highest-refusal 10% of countries in the dataset, whatever their exact rate."
+)
+
+# ---------------- 10. "YEARS IN TOP 10" CONSISTENCY ----------------
+st.write("")
+st.subheader("🔂 How Often Has Each Country Been in the Top 10?")
+top10_streak = pd.Series(0, index=df["Country"], dtype=int)
+for yc in YEAR_COLS:
+    yr_top10 = set(df[["Country", yc]].dropna().sort_values(yc, ascending=False).head(10)["Country"])
+    top10_streak.loc[list(yr_top10)] += 1
+streak_df = top10_streak[top10_streak > 0].sort_values(ascending=True).reset_index()
+streak_df.columns = ["Country", "Years in Top 10"]
+fig = go.Figure(go.Bar(
+    x=streak_df["Years in Top 10"], y=streak_df["Country"], orientation="h",
+    marker_color=COLORS["primary_dark"],
+    text=streak_df["Years in Top 10"], textposition="outside",
+))
+fig.update_layout(
+    height=max(300, 22 * len(streak_df)), xaxis_title=f"Years in Top 10 (out of {len(YEAR_COLS)})",
+    yaxis_title="", margin=dict(t=10, b=10), xaxis=dict(dtick=1),
+)
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+persistent = streak_df[streak_df["Years in Top 10"] == len(YEAR_COLS)]["Country"].tolist()
+insight(
+    f"{len(persistent)} countries have been in the Top 10 in **every single year** ({', '.join(persistent) if persistent else 'none'})"
+    if persistent else
+    "No country has stayed in the Top 10 every single year — the highest-refusal group does shift over time."
+)
+
+st.write("")
 st.subheader("🔍 Filterable Country Table")
 threshold = st.slider(f"Show countries with {year} refusal rate above:", 0, 100, 0, format="%d%%") / 100
 search = st.text_input("Search country name")
@@ -104,7 +225,7 @@ if sel_idx > 0:
     table["yoy_change"] = table[year] - table[prev_year]
 else:
     prev_year = None
-    table["yoy_change"] = pd.NA
+    table["yoy_change"] = float("nan")
 
 table = table[table[year] >= threshold]
 if search:
