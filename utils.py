@@ -57,9 +57,15 @@ def apply_plotly_theme():
         xaxis=dict(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"], linecolor=COLORS["grid"]),
         yaxis=dict(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"], linecolor=COLORS["grid"]),
         legend=dict(bgcolor="rgba(0,0,0,0)"),
-        margin=dict(l=40, r=30, t=50, b=40),
+        margin=dict(l=40, r=60, t=50, b=40),
         hoverlabel=dict(bgcolor="white", font_size=13, bordercolor=COLORS["grid"]),
     )
+    # Uniform data-label styling for every bar/line chart in the app, so labels are
+    # never tiny on one chart and huge on another, and are never silently shrunk or
+    # clipped off when they sit just outside a bar/marker.
+    label_font = dict(family="Segoe UI, Helvetica, Arial, sans-serif", size=12, color=COLORS["text"])
+    template.data.bar = [go.Bar(textfont=label_font, cliponaxis=False, constraintext="none")]
+    template.data.scatter = [go.Scatter(textfont=dict(family=label_font["family"], size=11, color=COLORS["text"]))]
     pio.templates["visa_theme"] = template
     pio.templates.default = "visa_theme"
 
