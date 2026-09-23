@@ -12,8 +12,17 @@ df = load_data()
 with st.sidebar:
     sidebar_badge("📉 Trends & Volatility")
     st.caption("Global year-over-year patterns across all 199 countries.")
+    country_filter = st.multiselect(
+        "Filter countries (optional)", sorted(df["Country"].unique()),
+        placeholder="All countries shown by default",
+    )
+
+if country_filter:
+    df = df[df["Country"].isin(country_filter)]
 
 page_header("TRENDS & VOLATILITY", "Global Trends Over Time", "How B-visa refusal rates moved year by year, 2019–2025")
+if country_filter:
+    st.info(f"📌 All charts below reflect your **{len(country_filter)} selected countries** only, not the full dataset.")
 
 global_avg = df[YEAR_COLS].mean()
 max_year = global_avg.idxmax()
@@ -97,24 +106,27 @@ insight(
 st.write("")
 st.subheader("🎯 Volatility vs. Average Rate — Is Instability Linked to Higher Refusals?")
 scatter_df = df[["Country", "avg_rate", "std_dev"]].dropna()
-corr = scatter_df["avg_rate"].corr(scatter_df["std_dev"])
-fig = px.scatter(
-    scatter_df, x="avg_rate", y="std_dev", hover_name="Country",
-    color_discrete_sequence=[COLORS["primary"]], opacity=0.65,
-)
-fig.update_traces(marker=dict(size=9, line=dict(width=1, color="#FFFFFF")))
-fig.update_layout(
-    height=420, xaxis_tickformat=".0%", yaxis_tickformat=".0%",
-    xaxis_title="7-year average refusal rate", yaxis_title="Volatility (std. deviation)",
-)
-st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
-strength = "a weak" if abs(corr) < 0.3 else ("a moderate" if abs(corr) < 0.6 else "a strong")
-direction = "positive" if corr >= 0 else "negative"
-insight(
-    f"Each dot is a country. The correlation between average rate and volatility is **{corr:+.2f}** — "
-    f"{strength} {direction} relationship, meaning countries with a higher average refusal rate tend to "
-    f"{'also swing more year to year' if corr > 0 else 'not necessarily swing more year to year'}."
-)
+if len(scatter_df) < 3:
+    st.info("Select at least 3 countries to compute a meaningful correlation between average rate and volatility.")
+else:
+    corr = scatter_df["avg_rate"].corr(scatter_df["std_dev"])
+    fig = px.scatter(
+        scatter_df, x="avg_rate", y="std_dev", hover_name="Country",
+        color_discrete_sequence=[COLORS["primary"]], opacity=0.65,
+    )
+    fig.update_traces(marker=dict(size=9, line=dict(width=1, color="#FFFFFF")))
+    fig.update_layout(
+        height=420, xaxis_tickformat=".0%", yaxis_tickformat=".0%",
+        xaxis_title="7-year average refusal rate", yaxis_title="Volatility (std. deviation)",
+    )
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    strength = "a weak" if abs(corr) < 0.3 else ("a moderate" if abs(corr) < 0.6 else "a strong")
+    direction = "positive" if corr >= 0 else "negative"
+    insight(
+        f"Each dot is a country. The correlation between average rate and volatility is **{corr:+.2f}** — "
+        f"{strength} {direction} relationship, meaning countries with a higher average refusal rate tend to "
+        f"{'also swing more year to year' if corr > 0 else 'not necessarily swing more year to year'}."
+    )
 
 # ---------------- 7. 3-YEAR ROLLING AVERAGE (SMOOTHED TREND) ----------------
 st.write("")
