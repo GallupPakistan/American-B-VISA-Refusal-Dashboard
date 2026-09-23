@@ -33,6 +33,30 @@ page_header(
 
 year_data = df[["Country", year]].dropna()
 
+# ---------------- EXECUTIVE SUMMARY ----------------
+sel_idx = YEAR_COLS.index(year)
+prev_year = YEAR_COLS[sel_idx - 1] if sel_idx > 0 else None
+global_avg_now = year_data[year].mean()
+very_high_count = int((year_data[year] >= 0.60).sum())
+top_row_summary = year_data.loc[year_data[year].idxmax()]
+
+yoy_line = ""
+if prev_year:
+    prev_data = df[["Country", prev_year]].dropna()
+    global_avg_prev = prev_data[prev_year].mean()
+    delta = (global_avg_now - global_avg_prev) * 100
+    direction = "up" if delta >= 0 else "down"
+    yoy_line = f" That's **{direction} {abs(delta):.1f} points** from {prev_year} ({global_avg_prev*100:.1f}%)."
+
+st.info(
+    f"📌 **Executive Summary — {year}:** Global average refusal rate is **{global_avg_now*100:.1f}%** "
+    f"across {year_data.shape[0]} countries.{yoy_line} **{top_row_summary['Country']}** has the highest "
+    f"rate ({top_row_summary[year]*100:.1f}%), and **{very_high_count} countries** are in the "
+    f"\"Very High\" (60%+) risk band."
+)
+
+st.write("")
+
 # ---------------- KPI CARDS ----------------
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Global Average", f"{year_data[year].mean()*100:.1f}%")
@@ -43,6 +67,41 @@ c3.metric("Lowest Refusal Rate", f"{low_row[year]*100:.1f}%", low_row["Country"]
 c4.metric("Countries Covered", f"{year_data.shape[0]}")
 
 st.write("")
+
+# ---------------- BIGGEST MOVERS THIS YEAR (single-year YoY) ----------------
+if prev_year:
+    st.subheader(f"📣 Biggest Movers: {prev_year} → {year}")
+    yoy_df = df[["Country", prev_year, year]].dropna().copy()
+    yoy_df["change"] = (yoy_df[year] - yoy_df[prev_year]) * 100
+    gainers = yoy_df.sort_values("change", ascending=False).head(5)
+    decliners = yoy_df.sort_values("change", ascending=True).head(5)
+
+    mc1, mc2 = st.columns(2)
+    with mc1:
+        st.markdown("**🔺 Rate increased most (worse)**")
+        fig = go.Figure(go.Bar(
+            x=gainers["change"], y=gainers["Country"], orientation="h",
+            marker_color=COLORS["negative"], text=[f"+{v:.1f}%" for v in gainers["change"]],
+            textposition="outside",
+        ))
+        fig.update_layout(height=260, xaxis_title="Change (pts)", yaxis_title="",
+                           margin=dict(t=10, b=10), yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    with mc2:
+        st.markdown("**🔻 Rate decreased most (better)**")
+        fig = go.Figure(go.Bar(
+            x=decliners["change"], y=decliners["Country"], orientation="h",
+            marker_color=COLORS["positive"], text=[f"{v:.1f}%" for v in decliners["change"]],
+            textposition="outside",
+        ))
+        fig.update_layout(height=260, xaxis_title="Change (pts)", yaxis_title="",
+                           margin=dict(t=10, b=10), yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(
+        f"These are the sharpest single-year swings ({prev_year}→{year}), separate from the "
+        f"2019→2025 long-term movers on the **Rankings** page."
+    )
+    st.write("")
 col_left, col_right = st.columns([1.6, 1])
 
 # ---------------- CHOROPLETH MAP ----------------
