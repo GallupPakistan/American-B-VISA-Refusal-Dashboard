@@ -3,7 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils import (
     load_data, apply_plotly_theme, inject_css, page_header, insight,
-    get_iso_map, sidebar_badge, chip_list, COLORS, YEAR_COLS,
+    get_iso_map, sidebar_badge, chip_list, COLORS, YEAR_COLS, YEARS,
 )
 
 st.set_page_config(
@@ -225,4 +225,78 @@ insight(
 st.caption(
     "📌 Data note: Western Sahara only has published refusal-rate data for 2019–2020; "
     "later years are shown as unavailable rather than zero."
+)
+
+# ---------------- 7. GLOBAL AVERAGE TREND (quick headline trend) ----------------
+st.write("")
+st.subheader("📈 Global Average Trend (2019–2025)")
+global_line = df[YEAR_COLS].mean()
+fig = go.Figure(go.Scatter(
+    x=YEARS, y=global_line.values, mode="lines+markers+text",
+    line=dict(color=COLORS["primary"], width=3), marker=dict(size=9),
+    fill="tozeroy", fillcolor=COLORS["primary_light"],
+    text=[f"{v*100:.1f}%" for v in global_line.values], textposition="top center",
+))
+fig.update_layout(height=320, yaxis_tickformat=".0%", yaxis_title="Global average",
+                   xaxis_title="", margin=dict(t=30, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    "A quick look at the long-run headline trend — see the **Trends & Volatility** page for "
+    "the full breakdown (spread, volatility, and year-over-year momentum)."
+)
+
+# ---------------- 8. AVERAGE BY REGION THIS YEAR (snapshot) ----------------
+st.write("")
+st.subheader(f"🌎 Average Refusal Rate by Region — {year}")
+region_snap = year_data.merge(df[["Country", "Region"]], on="Country").groupby("Region")[year].mean().sort_values(ascending=False)
+fig = go.Figure(go.Bar(
+    x=region_snap.index, y=region_snap.values * 100,
+    marker_color=COLORS["sequence"][:len(region_snap)],
+    text=[f"{v*100:.1f}%" for v in region_snap.values], textposition="outside",
+))
+fig.update_layout(height=340, yaxis_title="Average refusal rate (%)", xaxis_title="", margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    f"A quick regional snapshot for {year} — visit **Region Explorer** for each region's trend, "
+    f"map, and internal spread."
+)
+
+# ---------------- 9. COUNTRIES PER REGION (dataset composition, treemap) ----------------
+st.write("")
+st.subheader("🗂️ Countries Covered, by Region")
+region_counts = df["Region"].value_counts().reset_index()
+region_counts.columns = ["Region", "Count"]
+fig = px.treemap(
+    region_counts, path=["Region"], values="Count",
+    color="Count", color_continuous_scale=COLORS["blue_scale"],
+)
+fig.update_traces(texttemplate="<b>%{label}</b><br>%{value} countries", textfont_size=14)
+fig.update_layout(height=320, margin=dict(t=10, b=10, l=10, r=10), coloraxis_showscale=False)
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    "Bigger box = more countries in that region — useful context before comparing regional "
+    "averages, since a region with only a handful of countries is less statistically stable."
+)
+
+# ---------------- 10. THIS YEAR vs 7-YEAR HISTORICAL GLOBAL AVERAGE (gauge) ----------------
+st.write("")
+st.subheader(f"🎯 {year} vs the 7-Year Historical Global Average")
+hist_avg = df[YEAR_COLS].mean().mean()  # average-of-yearly-averages, 2019-2025
+fig = go.Figure(go.Indicator(
+    mode="gauge+number+delta",
+    value=global_avg_now * 100,
+    number={"suffix": "%"},
+    delta={"reference": hist_avg * 100, "increasing": {"color": COLORS["negative"]},
+           "decreasing": {"color": COLORS["positive"]}},
+    gauge={
+        "axis": {"range": [0, 60]},
+        "bar": {"color": COLORS["primary"]},
+        "threshold": {"line": {"color": "#111827", "width": 3}, "thickness": 0.8, "value": hist_avg * 100},
+    },
+))
+fig.update_layout(height=300, margin=dict(t=30, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight(
+    f"The dark line marks the 7-year historical global average ({hist_avg*100:.1f}%). {year}'s rate of "
+    f"{global_avg_now*100:.1f}% is {'above' if global_avg_now > hist_avg else 'below'} that long-run norm."
 )
