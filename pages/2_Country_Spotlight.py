@@ -135,3 +135,154 @@ if pd.notna(row['max_rate']):
     )
 else:
     insight(f"No refusal-rate history is available for {country}.")
+
+# ---------------- 4. GLOBAL DISTRIBUTION WITH THIS COUNTRY MARKED ----------------
+st.write("")
+st.subheader(f"📊 Where {country} Sits in the {year} Global Distribution")
+year_all = df[year].dropna()
+fig = go.Figure(go.Histogram(
+    x=year_all * 100, nbinsx=20, marker_color=COLORS["primary_light"],
+    marker_line=dict(color=COLORS["primary"], width=1), name="All countries",
+))
+if pd.notna(row[year]):
+    rank_this_year = int((year_all > row[year]).sum()) + 1
+    fig.add_vline(x=row[year] * 100, line_width=3, line_dash="dash", line_color=COLORS["negative"],
+                  annotation_text=f"{country}: {row[year]*100:.1f}%", annotation_position="top")
+fig.update_layout(height=340, xaxis_title="Refusal rate (%)", yaxis_title="Number of countries",
+                   showlegend=False, margin=dict(t=40, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+if pd.notna(row[year]):
+    insight(
+        f"{country} ranks **#{rank_this_year} of {len(year_all)}** countries in {year} "
+        f"(#1 = highest refusal rate) — the dashed line marks where it sits among everyone else."
+    )
+
+# ---------------- 5. PER-COUNTRY YEAR-OVER-YEAR CHANGE ----------------
+st.write("")
+st.subheader(f"📅 {country}'s Year-over-Year Change")
+own_series = row[YEAR_COLS]
+own_yoy = own_series.astype(float).diff().dropna() * 100
+if own_yoy.notna().any():
+    yoy_years_c = [int(y) for y in own_yoy.index]
+    fig = go.Figure(go.Bar(
+        x=yoy_years_c, y=own_yoy.values,
+        marker_color=[COLORS["negative"] if v >= 0 else COLORS["positive"] for v in own_yoy.values],
+        text=[f"{v:+.1f}%" for v in own_yoy.values], textposition="outside",
+    ))
+    fig.update_layout(height=320, yaxis_title="Change vs prior year (pts)", xaxis_title="",
+                       xaxis=dict(tickmode="array", tickvals=yoy_years_c), margin=dict(t=20, b=10))
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(f"{country}'s own year-to-year momentum, separate from the global YoY chart on **Trends & Volatility**.")
+else:
+    st.info(f"Not enough consecutive-year data for {country} to compute year-over-year change.")
+
+# ---------------- 6. RANK-OVER-TIME ----------------
+st.write("")
+st.subheader(f"🏁 {country}'s Rank Over Time")
+rank_over_time = []
+for yc in YEAR_COLS:
+    yc_all = df[yc].dropna()
+    if pd.notna(row[yc]):
+        r = int((yc_all > row[yc]).sum()) + 1
+        rank_over_time.append((int(yc), r, len(yc_all)))
+if rank_over_time:
+    rot_years = [t[0] for t in rank_over_time]
+    rot_ranks = [t[1] for t in rank_over_time]
+    rot_totals = [t[2] for t in rank_over_time]
+    fig = go.Figure(go.Scatter(
+        x=rot_years, y=rot_ranks, mode="lines+markers+text",
+        line=dict(color=COLORS["primary_dark"], width=3), marker=dict(size=9),
+        text=[f"#{r}" for r in rot_ranks], textposition="top center",
+    ))
+    fig.update_layout(
+        height=320, yaxis_title="Rank (#1 = highest refusal rate)", xaxis_title="",
+        yaxis=dict(autorange="reversed"), margin=dict(t=30, b=10),
+    )
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(f"Lower on this chart = higher rank (closer to #1, the world's highest refusal rate).")
+else:
+    st.info(f"Not enough data to trace {country}'s rank over time.")
+
+# ---------------- 7. METRIC PROFILE RADAR ----------------
+st.write("")
+st.subheader(f"🕸️ {country}'s Metric Profile")
+if pd.notna(row['avg_rate']):
+    radar_metrics = ["7yr Average", "Highest", "Lowest", f"{year} Rate", "Volatility (Std Dev)"]
+    radar_vals = [
+        row['avg_rate'] * 100, row['max_rate'] * 100, row['min_rate'] * 100,
+        (row[year] * 100 if pd.notna(row[year]) else 0), row['std_dev'] * 100,
+    ]
+    fig = go.Figure(go.Scatterpolar(
+        r=radar_vals + [radar_vals[0]], theta=radar_metrics + [radar_metrics[0]],
+        fill="toself", line=dict(color=COLORS["primary"], width=2),
+        fillcolor=COLORS["primary_light"],
+    ))
+    fig.update_layout(
+        height=380, polar=dict(radialaxis=dict(visible=True, ticksuffix="%")),
+        showlegend=False, margin=dict(t=30, b=10),
+    )
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight("A quick visual fingerprint combining five metrics at once — a bigger, more lopsided shape means more extreme or more volatile.")
+else:
+    st.info(f"Not enough data to build a metric profile for {country}.")
+
+# ---------------- 8. YEARS ABOVE GLOBAL AVERAGE (DONUT) ----------------
+st.write("")
+st.subheader(f"🍩 Years {country} Was Above the Global Average")
+comparable_years = [yc for yc in YEAR_COLS if pd.notna(row[yc])]
+above = sum(1 for yc in comparable_years if row[yc] > global_avg_by_year[yc])
+below = len(comparable_years) - above
+if comparable_years:
+    fig = go.Figure(go.Pie(
+        labels=["Above global average", "At or below global average"], values=[above, below],
+        hole=0.55, marker=dict(colors=[COLORS["negative"], COLORS["positive"]]),
+        texttemplate="%{label}<br>%{value} yrs", textposition="outside",
+    ))
+    fig.update_layout(height=340, showlegend=False, margin=dict(t=20, b=10))
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(f"Out of {len(comparable_years)} years with data, {country} was above the global average in {above} of them.")
+
+# ---------------- 9. REGIONAL PEER COMPARISON ----------------
+st.write("")
+st.subheader(f"👥 {country} vs. Its Top {region} Peers — {year}")
+region_peers = df[(df["Region"] == region) & df[year].notna()].sort_values(year, ascending=False)
+peer_set = region_peers.head(5).copy()
+if country not in peer_set["Country"].values and country in region_peers["Country"].values:
+    own_row_df = region_peers[region_peers["Country"] == country]
+    peer_set = pd.concat([peer_set.head(4), own_row_df])
+if not peer_set.empty:
+    peer_set = peer_set.sort_values(year)
+    fig = go.Figure(go.Bar(
+        x=peer_set[year] * 100, y=peer_set["Country"], orientation="h",
+        marker_color=[COLORS["negative"] if c == country else COLORS["primary_light"] for c in peer_set["Country"]],
+        text=[f"{v*100:.1f}%" for v in peer_set[year]], textposition="outside",
+    ))
+    fig.update_layout(height=320, xaxis_title="Refusal rate (%)", yaxis_title="", margin=dict(t=20, b=10))
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(f"{country} highlighted in orange, shown against the highest-refusal countries in {region} for {year}.")
+else:
+    st.info(f"Not enough {region} peer data for {year} to build this comparison.")
+
+# ---------------- 10. VOLATILITY GAUGE ----------------
+st.write("")
+st.subheader(f"⚡ {country}'s Volatility vs. the Most Volatile Country")
+if pd.notna(row['std_dev']):
+    max_std = df["std_dev"].max()
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=row['std_dev'] * 100,
+        number={"suffix": " pts"},
+        gauge={
+            "axis": {"range": [0, max_std * 100]},
+            "bar": {"color": COLORS["primary_dark"]},
+            "steps": [{"range": [0, df["std_dev"].mean() * 100], "color": COLORS["primary_light"]}],
+        },
+    ))
+    fig.update_layout(height=280, margin=dict(t=30, b=10))
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(
+        f"{country}'s year-to-year swing (standard deviation of {row['std_dev']*100:.1f} points) compared "
+        f"against the most volatile country in the dataset ({max_std*100:.1f} points)."
+    )
+else:
+    st.info(f"Not enough data to compute volatility for {country}.")
