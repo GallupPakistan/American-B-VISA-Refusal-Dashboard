@@ -115,3 +115,55 @@ insight(
     f"{strength} {direction} relationship, meaning countries with a higher average refusal rate tend to "
     f"{'also swing more year to year' if corr > 0 else 'not necessarily swing more year to year'}."
 )
+
+# ---------------- 7. 3-YEAR ROLLING AVERAGE (SMOOTHED TREND) ----------------
+st.write("")
+st.subheader("〜 3-Year Rolling Average (Smoothed Trend)")
+rolling = global_avg.rolling(window=3, min_periods=1).mean()
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=YEARS, y=global_avg.values, mode="lines+markers", name="Yearly average",
+                          line=dict(color="#CBD5E1", width=2, dash="dot")))
+fig.add_trace(go.Scatter(x=YEARS, y=rolling.values, mode="lines+markers+text", name="3-yr rolling avg",
+                          line=dict(color=COLORS["primary_dark"], width=3), marker=dict(size=8),
+                          text=[f"{v*100:.1f}%" for v in rolling.values], textposition="bottom center"))
+fig.update_layout(height=360, yaxis_tickformat=".0%", yaxis_title="Refusal rate", xaxis_title="",
+                   legend=dict(orientation="h", y=1.12))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("The smoothed (dark) line filters out single-year noise so the underlying direction is easier to read than the raw yearly average alone.")
+
+# ---------------- 8. TRENDING UP vs DOWN (DONUT) ----------------
+st.write("")
+st.subheader("🍩 How Many Countries Are Trending Up vs Down (2019 → 2025)?")
+trend_counts = df["net_change"].dropna().apply(lambda x: "Trending Up (worse)" if x > 0 else ("Trending Down (better)" if x < 0 else "No change")).value_counts()
+fig = go.Figure(go.Pie(
+    labels=trend_counts.index, values=trend_counts.values, hole=0.55,
+    marker=dict(colors=[COLORS["negative"], COLORS["positive"], "#94A3B8"]),
+    texttemplate="%{label}<br>%{value} countries", textposition="outside",
+))
+fig.update_layout(height=380, showlegend=False, margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("A simple up/down split across all countries with data for both endpoint years — the long-run direction, ignoring the exact size of the move.")
+
+# ---------------- 9. VOLATILITY DISTRIBUTION (ALL COUNTRIES) ----------------
+st.write("")
+st.subheader("📊 Volatility Distribution — All Countries")
+fig = go.Figure(go.Histogram(
+    x=df["std_dev"].dropna() * 100, nbinsx=20,
+    marker_color=COLORS["primary_light"], marker_line=dict(color=COLORS["primary_dark"], width=1),
+))
+fig.update_layout(height=340, xaxis_title="Std. deviation (points)", yaxis_title="Number of countries",
+                   margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("Most countries cluster at low volatility (stable rates); the 'Most Volatile' bar chart above only showed the extreme tail — this shows the full picture.")
+
+# ---------------- 10. MOST STABLE COUNTRIES (LOWEST VOLATILITY) ----------------
+st.write("")
+st.subheader("🧘 Most Stable Countries (Lowest Std. Deviation)")
+stable = df[["Country", "std_dev"]].dropna().sort_values("std_dev", ascending=True).head(10).sort_values("std_dev", ascending=False)
+fig = px.bar(stable, x="std_dev", y="Country", orientation="h",
+             color_discrete_sequence=[COLORS["positive"]], text_auto=".1%")
+fig.update_traces(textposition="outside")
+fig.update_layout(height=400, xaxis_tickformat=".1%", xaxis_title="Std. deviation (2019-2025)", yaxis_title="",
+                   margin=dict(t=10, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("The mirror image of the 'Most Volatile' chart — these countries' refusal rates barely moved across the 7 years.")
