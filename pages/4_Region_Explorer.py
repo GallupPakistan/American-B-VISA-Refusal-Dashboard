@@ -168,7 +168,7 @@ region_vol = df.groupby("Region")["std_dev"].mean().sort_values(ascending=False)
 fig = go.Figure(go.Bar(
     x=region_vol.index, y=region_vol.values,
     marker_color=[COLORS["primary"] if r == region else COLORS["primary_light"] for r in region_vol.index],
-    text=[f"{v:.1f}" for v in region_vol.values], textposition="outside",
+    text=[f"{v:.1f}%" for v in region_vol.values], textposition="outside",
 ))
 fig.update_layout(height=340, yaxis_title="Avg. std. deviation (points)", xaxis_title="", margin=dict(t=20, b=10))
 st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
@@ -194,7 +194,7 @@ region_net = (df.groupby("Region")["2025"].mean() - df.groupby("Region")["2019"]
 fig = go.Figure(go.Bar(
     x=region_net.values, y=region_net.index, orientation="h",
     marker_color=[COLORS["negative"] if v >= 0 else COLORS["positive"] for v in region_net.values],
-    text=[f"{v:+.1f}" for v in region_net.values], textposition="outside",
+    text=[f"{v:+.1f}%" for v in region_net.values], textposition="outside",
 ))
 fig.update_layout(height=340, xaxis_title="Change in average refusal rate (points)", yaxis_title="",
                    margin=dict(t=10, b=10))
@@ -211,6 +211,9 @@ fig = go.Figure(go.Bar(
     text=[f"{c} — {v*100:.1f}%" for c, v in zip(leaders["Country"], leaders[year])],
     textposition="outside",
 ))
-fig.update_layout(height=340, xaxis_title="Refusal rate (%)", yaxis_title="", margin=dict(t=10, b=60))
+fig.update_layout(
+    height=340, xaxis_title="Refusal rate (%)", yaxis_title="", margin=dict(t=10, b=60, r=180),
+    xaxis=dict(range=[0, max(leaders[year]) * 100 * 1.05]),
+)
 st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 insight("Each region's single highest-refusal country for the selected year — the country name is printed on its bar.")
