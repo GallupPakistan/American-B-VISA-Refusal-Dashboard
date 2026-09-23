@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
 from utils import (
     load_data, apply_plotly_theme, inject_css, page_header, insight,
     sidebar_badge, get_iso_map, COLORS, YEAR_COLS,
@@ -159,3 +160,57 @@ insight(
     f"sit under 20% refusal and {high_share} are at 60%+ — this shows whether the region is broadly "
     f"consistent or has a wide spread hiding behind its single average above."
 )
+
+# ---------------- 6. REGION VOLATILITY COMPARISON ----------------
+st.write("")
+st.subheader("⚡ Which Region Is Most Volatile?")
+region_vol = df.groupby("Region")["std_dev"].mean().sort_values(ascending=False) * 100
+fig = go.Figure(go.Bar(
+    x=region_vol.index, y=region_vol.values,
+    marker_color=[COLORS["primary"] if r == region else COLORS["primary_light"] for r in region_vol.index],
+    text=[f"{v:.1f}" for v in region_vol.values], textposition="outside",
+))
+fig.update_layout(height=340, yaxis_title="Avg. std. deviation (points)", xaxis_title="", margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("This averages each region's countries' own year-to-year volatility — a region can have a modest average rate but still be unstable underneath.")
+
+# ---------------- 7. COUNTRIES PER REGION (COMPOSITION) ----------------
+st.write("")
+st.subheader("🗂️ Countries per Region")
+region_count = df["Region"].value_counts().sort_values(ascending=True)
+fig = go.Figure(go.Bar(
+    x=region_count.values, y=region_count.index, orientation="h",
+    marker_color=[COLORS["primary"] if r == region else COLORS["primary_light"] for r in region_count.index],
+    text=region_count.values, textposition="outside",
+))
+fig.update_layout(height=340, xaxis_title="Number of countries", yaxis_title="", margin=dict(t=10, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("Context for every average shown above — a region with fewer countries is more sensitive to any single country's swing.")
+
+# ---------------- 8. REGION NET CHANGE 2019 → 2025 ----------------
+st.write("")
+st.subheader("↕️ Region Net Change: 2019 → 2025")
+region_net = (df.groupby("Region")["2025"].mean() - df.groupby("Region")["2019"].mean()).sort_values() * 100
+fig = go.Figure(go.Bar(
+    x=region_net.values, y=region_net.index, orientation="h",
+    marker_color=[COLORS["negative"] if v >= 0 else COLORS["positive"] for v in region_net.values],
+    text=[f"{v:+.1f}" for v in region_net.values], textposition="outside",
+))
+fig.update_layout(height=340, xaxis_title="Change in average refusal rate (points)", yaxis_title="",
+                   margin=dict(t=10, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("Unlike the current-year snapshot above, this shows which region's average has moved the most over the full 7-year span.")
+
+# ---------------- 9. HIGHEST-REFUSAL COUNTRY PER REGION ----------------
+st.write("")
+st.subheader(f"🚩 Highest-Refusal Country in Each Region — {year}")
+leaders = year_data.loc[year_data.groupby("Region")[year].idxmax()].sort_values(year)
+fig = go.Figure(go.Bar(
+    x=leaders[year] * 100, y=leaders["Region"], orientation="h",
+    marker_color=[COLORS["primary"] if r == region else COLORS["primary_light"] for r in leaders["Region"]],
+    text=[f"{c} — {v*100:.1f}%" for c, v in zip(leaders["Country"], leaders[year])],
+    textposition="outside",
+))
+fig.update_layout(height=340, xaxis_title="Refusal rate (%)", yaxis_title="", margin=dict(t=10, b=60))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("Each region's single highest-refusal country for the selected year — the country name is printed on its bar.")
