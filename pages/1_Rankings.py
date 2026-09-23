@@ -23,14 +23,18 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("🔺 Top 10 — Highest Refusal Rate")
     fig = px.bar(top10, x=year, y="Country", orientation="h",
-                 color_discrete_sequence=[COLORS["negative"]])
+                 color_discrete_sequence=[COLORS["negative"]],
+                 text_auto=".1%")
+    fig.update_traces(textposition="outside")
     fig.update_layout(height=420, xaxis_tickformat=".0%", yaxis_title="", xaxis_title="Refusal rate")
     st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
 with col2:
     st.subheader("🔻 Bottom 10 — Lowest Refusal Rate")
     fig = px.bar(bottom10, x=year, y="Country", orientation="h",
-                 color_discrete_sequence=[COLORS["positive"]])
+                 color_discrete_sequence=[COLORS["positive"]],
+                 text_auto=".1%")
+    fig.update_traces(textposition="outside")
     fig.update_layout(height=420, xaxis_tickformat=".0%", yaxis_title="", xaxis_title="Refusal rate")
     st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
@@ -78,7 +82,9 @@ else:
     fig = px.bar(
         movers, x="net_change", y="Country", orientation="h", color="status",
         color_discrete_map={"Entered Top 10": COLORS["negative"], "Dropped out": COLORS["positive"]},
+        text_auto="+.1%",
     )
+    fig.update_traces(textposition="outside")
     fig.update_layout(
         height=max(280, 40 * len(movers)), xaxis_tickformat="+.0%",
         xaxis_title="Change in refusal rate (2019 → 2025)", yaxis_title="", legend_title="",
