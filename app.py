@@ -22,16 +22,30 @@ with st.sidebar:
     st.caption("US B-Visa refusal rates · 2019–2025 · 199 countries")
     st.divider()
     year = st.select_slider("Select year", options=YEAR_COLS, value="2025")
+    country_filter = st.multiselect(
+        "Filter countries (optional)", sorted(df["Country"].unique()),
+        placeholder="All 199 countries shown by default",
+    )
     st.divider()
     st.caption("Navigate using the pages above ⬆️")
 
+if country_filter:
+    df = df[df["Country"].isin(country_filter)]
+
+scope_label = "all 199 countries" if not country_filter else f"{len(country_filter)} selected countries"
 page_header(
     "OVERVIEW",
     "Global B-Visa Refusal Dashboard",
-    f"Snapshot of B-visa refusal rates across 199 countries for {year}",
+    f"Snapshot of B-visa refusal rates across {scope_label} for {year}",
 )
+if country_filter:
+    st.info(f"📌 Showing **{len(country_filter)} selected countries** only. Clear the filter in the sidebar to see all 199.")
 
 year_data = df[["Country", year]].dropna()
+
+if year_data.empty:
+    st.warning(f"⚠️ None of your selected countries have data for {year}. Try a different year or adjust the filter.")
+    st.stop()
 
 # ---------------- EXECUTIVE SUMMARY ----------------
 sel_idx = YEAR_COLS.index(year)
