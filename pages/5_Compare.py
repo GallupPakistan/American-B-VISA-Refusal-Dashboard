@@ -175,7 +175,7 @@ vol_cmp = sub[["Country", "std_dev"]].dropna().sort_values("std_dev")
 fig = go.Figure(go.Bar(
     x=vol_cmp["std_dev"] * 100, y=vol_cmp["Country"], orientation="h",
     marker_color=COLORS["primary_dark"],
-    text=[f"{v*100:.1f}" for v in vol_cmp["std_dev"]], textposition="outside",
+    text=[f"{v*100:.1f}%" for v in vol_cmp["std_dev"]], textposition="outside",
 ))
 fig.update_layout(height=max(280, 55 * len(vol_cmp)), xaxis_title="Std. deviation (points)", yaxis_title="",
                    margin=dict(t=10, b=10))
