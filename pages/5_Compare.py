@@ -149,6 +149,100 @@ else:
         else:
             insight("+1.00 means two countries' rates rose and fell together every year; -1.00 means they moved oppositely.")
 
+# ---------------- 6. YoY CHANGE COMPARISON (latest selected year) ----------------
+st.write("")
+end_year = yr_range[1]
+end_idx_global = YEAR_COLS.index(end_year)
+if end_idx_global > 0:
+    prev_year_cmp = YEAR_COLS[end_idx_global - 1]
+    st.subheader(f"📅 Year-over-Year Change ({prev_year_cmp} → {end_year})")
+    yoy_cmp = (sub[end_year] - sub[prev_year_cmp]).dropna() * 100
+    yoy_cmp_df = pd.DataFrame({"Country": sub.loc[yoy_cmp.index, "Country"], "Change": yoy_cmp}).sort_values("Change")
+    fig = go.Figure(go.Bar(
+        x=yoy_cmp_df["Change"], y=yoy_cmp_df["Country"], orientation="h",
+        marker_color=[COLORS["negative"] if v >= 0 else COLORS["positive"] for v in yoy_cmp_df["Change"]],
+        text=[f"{v:+.1f}%" for v in yoy_cmp_df["Change"]], textposition="outside",
+    ))
+    fig.update_layout(height=max(280, 55 * len(yoy_cmp_df)), xaxis_title="Change (points)", yaxis_title="",
+                       margin=dict(t=10, b=10))
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight(f"Each country's own single-year momentum going into {end_year}, among just your selection.")
+
+# ---------------- 7. VOLATILITY COMPARISON ----------------
+st.write("")
+st.subheader("⚡ Volatility Comparison (Std. Deviation)")
+vol_cmp = sub[["Country", "std_dev"]].dropna().sort_values("std_dev")
+fig = go.Figure(go.Bar(
+    x=vol_cmp["std_dev"] * 100, y=vol_cmp["Country"], orientation="h",
+    marker_color=COLORS["primary_dark"],
+    text=[f"{v*100:.1f}" for v in vol_cmp["std_dev"]], textposition="outside",
+))
+fig.update_layout(height=max(280, 55 * len(vol_cmp)), xaxis_title="Std. deviation (points)", yaxis_title="",
+                   margin=dict(t=10, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("Higher bars mean that country's refusal rate swings around more from year to year, regardless of its average level.")
+
+# ---------------- 8. RANK COMPARISON (selected end year, vs all 199) ----------------
+st.write("")
+st.subheader(f"🏁 Rank Comparison — {end_year} (out of {df[end_year].notna().sum()} countries)")
+all_year_vals = df[end_year].dropna()
+rank_cmp = []
+for _, r in sub.iterrows():
+    if pd.notna(r[end_year]):
+        rk = int((all_year_vals > r[end_year]).sum()) + 1
+        rank_cmp.append({"Country": r["Country"], "Rank": rk})
+if rank_cmp:
+    rank_cmp_df = pd.DataFrame(rank_cmp).sort_values("Rank", ascending=False)
+    fig = go.Figure(go.Bar(
+        x=rank_cmp_df["Rank"], y=rank_cmp_df["Country"], orientation="h",
+        marker_color=COLORS["sequence"][:len(rank_cmp_df)],
+        text=[f"#{r}" for r in rank_cmp_df["Rank"]], textposition="outside",
+    ))
+    fig.update_layout(height=max(280, 55 * len(rank_cmp_df)), xaxis_title=f"Rank in {end_year} (#1 = highest)",
+                       yaxis_title="", margin=dict(t=10, b=10), xaxis=dict(autorange="reversed"))
+    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+    insight("Bars closer to #1 (right side) had the highest refusal rate among all 199 countries that year, not just among your selection.")
+
+# ---------------- 9. MULTI-COUNTRY METRIC RADAR ----------------
+st.write("")
+st.subheader("🕸️ Metric Profile Comparison")
+radar_labels = ["7yr Average", "Highest", "Lowest", f"{end_year} Rate", "Volatility"]
+fig = go.Figure()
+for i, (_, r) in enumerate(sub.iterrows()):
+    vals = [
+        (r["avg_rate"] or 0) * 100, (r["max_rate"] or 0) * 100, (r["min_rate"] or 0) * 100,
+        (r[end_year] * 100 if pd.notna(r[end_year]) else 0), (r["std_dev"] or 0) * 100,
+    ]
+    fig.add_trace(go.Scatterpolar(
+        r=vals + [vals[0]], theta=radar_labels + [radar_labels[0]],
+        name=r["Country"], line=dict(color=COLORS["sequence"][i % len(COLORS["sequence"])], width=2),
+    ))
+fig.update_layout(height=420, polar=dict(radialaxis=dict(visible=True, ticksuffix="%")),
+                   legend=dict(orientation="h", y=1.12), margin=dict(t=20, b=10))
+st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("Overlaying each country's shape makes it easy to spot who's consistently higher, lower, or more erratic across all five metrics at once.")
+
+# ---------------- 10. MINI SPARKLINES GRID (SMALL MULTIPLES) ----------------
+st.write("")
+st.subheader("📉 Quick-Glance Sparklines")
+n_cols = min(len(countries), 4)
+spark_cols = st.columns(n_cols)
+for i, (_, r) in enumerate(sub.iterrows()):
+    vals = [r[c] for c in selected_years]
+    with spark_cols[i % n_cols]:
+        fig = go.Figure(go.Scatter(
+            x=selected_year_ints, y=vals, mode="lines", fill="tozeroy",
+            line=dict(color=COLORS["sequence"][i % len(COLORS["sequence"])], width=2),
+            fillcolor=COLORS["primary_light"],
+        ))
+        fig.update_layout(
+            height=110, margin=dict(t=25, b=0, l=0, r=0),
+            xaxis=dict(visible=False), yaxis=dict(visible=False),
+            title=dict(text=f"{r['Country']}", font=dict(size=13)),
+        )
+        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+insight("A compact shape-only view of each country's trend — useful for eyeballing patterns before digging into the detailed charts above.")
+
 st.write("")
 export_df = sub[["Country"] + selected_years].copy()
 st.download_button(
