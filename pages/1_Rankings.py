@@ -12,10 +12,23 @@ df = load_data()
 with st.sidebar:
     sidebar_badge("🏆 Rankings")
     year = st.select_slider("Select year", options=YEAR_COLS, value="2025")
+    country_filter = st.multiselect(
+        "Filter countries (optional)", sorted(df["Country"].unique()),
+        placeholder="All countries shown by default",
+    )
+
+if country_filter:
+    df = df[df["Country"].isin(country_filter)]
 
 page_header("RANKINGS", "Top & Bottom Countries", f"Ranked by B-visa refusal rate in {year}")
+if country_filter:
+    st.info(f"📌 Rankings below are computed within your **{len(country_filter)} selected countries** only, not all 199.")
 
 year_data = df[["Country", year]].dropna().sort_values(year, ascending=False)
+if year_data.empty:
+    st.warning(f"⚠️ None of your selected countries have data for {year}. Try a different year or adjust the filter.")
+    st.stop()
+
 top10 = year_data.head(10).sort_values(year)
 bottom10 = year_data.tail(10).sort_values(year, ascending=False)
 
