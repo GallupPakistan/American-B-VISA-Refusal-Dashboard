@@ -16,16 +16,18 @@ with st.sidebar:
     year = st.select_slider("Select year", options=YEAR_COLS, value="2025")
 
 row = df[df["Country"] == country].iloc[0]
-page_header("COUNTRY SPOTLIGHT", country, "Historic B-Visa refusal trend, extremes, and standing vs. the world")
+region = row["Region"]
+page_header("COUNTRY SPOTLIGHT", country, f"Historic B-Visa refusal trend, extremes, and standing vs. the world · Region: {region}")
 
 global_avg_by_year = df[YEAR_COLS].mean()
+region_avg_by_year = df[df["Region"] == region][YEAR_COLS].mean()
 
 # Only look at years up to (and including) the year selected in the sidebar
 sel_idx = YEAR_COLS.index(year)
 visible_year_cols = YEAR_COLS[:sel_idx + 1]
 visible_years = YEARS[:sel_idx + 1]
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
 available_vals = [row[c] for c in visible_year_cols if pd.notna(row[c])]
 if available_vals:
     avg_to_date = sum(available_vals) / len(available_vals)
@@ -46,8 +48,11 @@ else:
 if pd.notna(row[year]):
     delta_vs_global = (row[year] - global_avg_by_year[year]) * 100
     c4.metric(f"{year} vs Global Avg", f"{row[year]*100:.1f}%", f"{delta_vs_global:+.1f} pts")
+    delta_vs_region = (row[year] - region_avg_by_year[year]) * 100
+    c5.metric(f"{year} vs {region} Avg", f"{row[year]*100:.1f}%", f"{delta_vs_region:+.1f} pts")
 else:
     c4.metric(f"{year} vs Global Avg", "No data")
+    c5.metric(f"{year} vs {region} Avg", "No data")
     st.warning(f"⚠️ No refusal-rate data is available for **{country}** in **{year}**. "
                f"Showing whatever history exists below.")
 
@@ -61,8 +66,9 @@ with col1:
     vals = [row[c] for c in visible_year_cols if pd.notna(row[c])]
     if vals:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=plot_years, y=vals, mode="lines+markers", name=country,
-                                  line=dict(color=COLORS["primary"], width=3), marker=dict(size=8)))
+        fig.add_trace(go.Scatter(x=plot_years, y=vals, mode="lines+markers+text", name=country,
+                                  line=dict(color=COLORS["primary"], width=3), marker=dict(size=8),
+                                  text=[f"{v*100:.1f}%" for v in vals], textposition="top center"))
         local_max, local_min = max(vals), min(vals)
         max_idx = vals.index(local_max)
         min_idx = vals.index(local_min)
@@ -74,17 +80,23 @@ with col1:
         st.info(f"No historic data available for {country} up to {year}.")
 
 with col2:
-    st.subheader("⚖️ vs. Global Average")
+    st.subheader(f"⚖️ vs. Global & Region Average")
     bar_years = [y for y, c in zip(visible_years, visible_year_cols) if pd.notna(row[c])]
     bar_country_vals = [row[c] for c in visible_year_cols if pd.notna(row[c])]
     bar_global_vals = [global_avg_by_year[c] for c in visible_year_cols if pd.notna(row[c])]
+    bar_region_vals = [region_avg_by_year[c] for c in visible_year_cols if pd.notna(row[c])]
     if bar_years:
         fig = go.Figure()
         fig.add_trace(go.Bar(x=bar_years, y=bar_country_vals, name=country,
-                              marker_color=COLORS["primary"]))
+                              marker_color=COLORS["primary"],
+                              text=[f"{v*100:.1f}%" for v in bar_country_vals], textposition="outside"))
+        fig.add_trace(go.Bar(x=bar_years, y=bar_region_vals, name=f"{region} Avg",
+                              marker_color=COLORS["sequence"][2],
+                              text=[f"{v*100:.1f}%" for v in bar_region_vals], textposition="outside"))
         fig.add_trace(go.Bar(x=bar_years, y=bar_global_vals, name="Global Avg",
-                              marker_color=COLORS["sequence"][4]))
-        fig.update_layout(height=400, barmode="group", yaxis_tickformat=".0%",
+                              marker_color=COLORS["sequence"][4],
+                              text=[f"{v*100:.1f}%" for v in bar_global_vals], textposition="outside"))
+        fig.update_layout(height=430, barmode="group", yaxis_tickformat=".0%",
                            legend=dict(orientation="h", y=1.1, itemclick=False, itemdoubleclick=False))
         st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     else:
@@ -118,7 +130,8 @@ if pd.notna(row['max_rate']):
     insight(
         f"{country}'s refusal rate peaked at {row['max_rate']*100:.1f}% in {row['max_year']} and "
         f"bottomed out at {row['min_rate']*100:.1f}% in {row['min_year']}. "
-        f"The orange line on the gauge marks the {year} global average ({gavg*100:.1f}%)."
+        f"The orange line on the gauge marks the {year} global average ({gavg*100:.1f}%); "
+        f"the {region} regional average that year was {region_avg_by_year[year]*100:.1f}%."
     )
 else:
     insight(f"No refusal-rate history is available for {country}.")
