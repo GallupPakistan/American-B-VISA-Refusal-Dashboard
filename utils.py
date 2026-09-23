@@ -23,25 +23,26 @@ YEAR_COLS = [str(y) for y in YEARS]
 # COLOR PALETTE  (change these to re-theme every chart in the app)
 # ----------------------------------------------------------------------
 COLORS = {
-    "bg": "#F5F8FC",
+    "bg": "#F6F7FB",
     "card_bg": "#FFFFFF",
-    "primary": "#2563EB",
-    "primary_light": "#DBEAFE",
-    "primary_dark": "#1E3A8A",
-    "text": "#1E293B",
+    "primary": "#4F46E5",
+    "primary_light": "#E7E5FB",
+    "primary_dark": "#312E81",
+    "text": "#1E1B4B",
     "text_muted": "#64748B",
-    "grid": "#E2E8F0",
-    "positive": "#0EA5E9",
-    "negative": "#F97316",
-    "sequence": ["#1E3A8A", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#DBEAFE"],
-    "diverging": ["#0EA5E9", "#93C5FD", "#F1F5F9", "#FDBA74", "#F97316"],
-    "blue_scale": ["#EFF6FF", "#BFDBFE", "#60A5FA", "#2563EB", "#1E3A8A"],
-    # Dark navy sidebar + hero header gradient (inspired by reference design)
-    "navy_top": "#0F2A5C",
-    "navy_bottom": "#16346E",
-    "navy_active": "#2C4E8F",
-    "navy_text": "#D6E2F5",
-    "navy_text_muted": "#8FA6CC",
+    "grid": "#E5E7F2",
+    "positive": "#10B981",
+    "negative": "#F43F5E",
+    "sequence": ["#312E81", "#4F46E5", "#6366F1", "#818CF8", "#0EA5E9", "#38BDF8", "#A5B4FC"],
+    "diverging": ["#10B981", "#A7F3D0", "#F1F5F9", "#FDA4AF", "#F43F5E"],
+    "blue_scale": ["#EEF2FF", "#C7D2FE", "#818CF8", "#4F46E5", "#312E81"],
+    # Dark ink sidebar + hero header gradient
+    "navy_top": "#111827",
+    "navy_bottom": "#1E1B4B",
+    "navy_active": "#4F46E5",
+    "navy_text": "#E4E6F7",
+    "navy_text_muted": "#9CA3D4",
+    "accent_teal": "#2DD4BF",
 }
 
 
@@ -67,7 +68,11 @@ def inject_css():
     """Custom CSS for card styling, spacing, fonts beyond what config.toml can do."""
     st.markdown(
         f"""
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <style>
+        html, body, [class*="css"] {{ font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; }}
         .main {{ background-color: {COLORS['bg']}; }}
 
         /* Hide the Deploy button + hamburger menu, WITHOUT touching stToolbar itself —
@@ -139,7 +144,7 @@ def inject_css():
         }}
         [data-testid="stSidebarNav"] a[aria-current="page"] {{
             background-color: {COLORS['navy_active']};
-            border-left: 3px solid #2DD4BF;
+            border-left: 3px solid {COLORS['accent_teal']};
             font-weight: 700;
             color: #FFFFFF !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -186,15 +191,21 @@ def inject_css():
         div[data-testid="stMetric"] {{
             background-color: {COLORS['card_bg']};
             border: 1px solid {COLORS['grid']};
+            border-left: 4px solid {COLORS['primary']};
             border-radius: 14px;
             padding: 16px 20px 16px 20px;
-            box-shadow: 0 2px 10px rgba(30, 58, 138, 0.06);
+            box-shadow: 0 2px 10px rgba(49, 46, 129, 0.07);
             height: 150px;
             min-height: 150px;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
             overflow: hidden;
+            transition: box-shadow 0.15s ease, transform 0.15s ease;
+        }}
+        div[data-testid="stMetric"]:hover {{
+            box-shadow: 0 6px 18px rgba(49, 46, 129, 0.14);
+            transform: translateY(-1px);
         }}
         div[data-testid="stMetric"] label {{
             color: {COLORS['text_muted']} !important;
@@ -228,16 +239,16 @@ def inject_css():
 
         /* ---------------- HERO HEADER CARD ---------------- */
         .hero-card {{
-            background: linear-gradient(135deg, {COLORS['navy_top']} 0%, {COLORS['primary']} 130%);
+            background: linear-gradient(135deg, {COLORS['navy_top']} 0%, {COLORS['primary_dark']} 55%, {COLORS['primary']} 130%);
             border-radius: 20px;
             padding: 24px 34px 26px 34px;
             margin: 0 0 18px 0;
-            box-shadow: 0 10px 30px rgba(15, 42, 92, 0.25);
+            box-shadow: 0 10px 30px rgba(17, 24, 39, 0.28);
         }}
         .hero-kicker {{
             display: inline-block;
             background-color: rgba(255,255,255,0.14);
-            color: #EAF1FF;
+            color: {COLORS['accent_teal']};
             font-weight: 700;
             font-size: 0.75rem;
             letter-spacing: 0.08em;
@@ -263,10 +274,13 @@ def inject_css():
             background-color: {COLORS['primary_light']};
             border-left: 4px solid {COLORS['primary']};
             border-radius: 10px;
-            padding: 16px 20px;
+            padding: 14px 20px 14px 16px;
             color: {COLORS['primary_dark']};
             font-size: 0.95rem;
             margin: 8px 0 18px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
         }}
 
         /* Sidebar section badge (pill), same style language as before */
@@ -349,7 +363,11 @@ def chip_list(items: list, kind: str = "positive"):
 
 
 def insight(text: str):
-    st.markdown(f"<div class='insight-card'>💡 {text}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='insight-card'><span style='font-size:1.1rem;line-height:1;'>💡</span>"
+        f"<span>{text}</span></div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ----------------------------------------------------------------------
